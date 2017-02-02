@@ -5,82 +5,10 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Office.Interop;
 using System.Windows.Forms;
+using System.Drawing;
 
 namespace tabuleckaGenerator
 {
-
-//     public void createDoc()
-//        {
-//            try
-//            {       
-//                app = new Excel.Application();
-//                app.Visible = true;
-//                workbook = app.Workbooks.Add(1);
-//                worksheet = (Excel.Worksheet)workbook.Sheets[1];
-//            }
-//            catch (Exception e)
-//            {
-//                Console.Write("Error");
-//            }
-//            finally
-//            {
-//            }
-//        }
-
-//public void createHeaders(int row, int col, string htext, string cell1,
-//string cell2, int mergeColumns,string b, bool font,int size,string
-//fcolor)
-//        {
-//            worksheet.Cells[row, col] = htext;
-//            workSheet_range = worksheet.get_Range(cell1, cell2);
-//            workSheet_range.Merge(mergeColumns);
-//            switch(b)
-//            {
-//                case "YELLOW":
-//                workSheet_range.Interior.Color = System.Drawing.Color.Yellow.ToArgb();
-//                break;
-//                case "GRAY":
-//                    workSheet_range.Interior.Color = System.Drawing.Color.Gray.ToArgb();
-//                break;
-//                case "GAINSBORO":
-//                    workSheet_range.Interior.Color = 
-//            System.Drawing.Color.Gainsboro.ToArgb();
-//                    break;
-//                case "Turquoise":
-//                    workSheet_range.Interior.Color = 
-//            System.Drawing.Color.Turquoise.ToArgb();
-//                    break;
-//                case "PeachPuff":
-//                    workSheet_range.Interior.Color = 
-//            System.Drawing.Color.PeachPuff.ToArgb();
-//                    break;
-//                default:
-//                  //  workSheet_range.Interior.Color = System.Drawing.Color..ToArgb();
-//                    break;
-//            }
-         
-//            workSheet_range.Borders.Color = System.Drawing.Color.Black.ToArgb();
-//            workSheet_range.Font.Bold = font;
-//            workSheet_range.ColumnWidth = size;
-//            if (fcolor.Equals(""))
-//            {
-//                workSheet_range.Font.Color = System.Drawing.Color.White.ToArgb();
-//            }
-//            else {
-//                workSheet_range.Font.Color = System.Drawing.Color.Black.ToArgb();
-//            }
-//        }
-
-//        public void addData(int row, int col, string data, 
-//            string cell1, string cell2,string format)
-//        {
-//            worksheet.Cells[row, col] = data;
-//            workSheet_range = worksheet.get_Range(cell1, cell2);
-//            workSheet_range.Borders.Color = System.Drawing.Color.Black.ToArgb();
-//            workSheet_range.NumberFormat = format;
-//        }    
-
-
     class TabuleckasGenerator
     {
         private Microsoft.Office.Interop.Excel.Application excelApp = null;
@@ -88,16 +16,23 @@ namespace tabuleckaGenerator
         private Microsoft.Office.Interop.Excel._Worksheet worksheet = null;
         private int month;
         private int year;
+        private int daysCount;
 
         public TabuleckasGenerator(int month, int year)
         {
             this.month = month;
             this.year = year;
+            this.daysCount = GetDaysCount();
 
             CreateDocument();
         }
 
-        private void CreateDocument()
+        public TabuleckasGenerator()
+        {
+            CreateDocument(false);
+        }
+
+        private void CreateDocument(bool setWorksheet = true)
         {
             try
             {
@@ -105,14 +40,28 @@ namespace tabuleckaGenerator
                 excelApp.Visible = true;
                 workbook = excelApp.Workbooks.Add(1);
 
-                worksheet = (Microsoft.Office.Interop.Excel.Worksheet)workbook.Sheets[1];
-                worksheet.Name = month + "_" + year;
+                if(setWorksheet)
+                {
+                    worksheet = (Microsoft.Office.Interop.Excel.Worksheet)workbook.Sheets[1];
+                    worksheet.Name = month + "_" + year;
+                    //workSheet.Activate();
+                    worksheet.Application.ActiveWindow.SplitRow = 1;
+                    worksheet.Application.ActiveWindow.FreezePanes = true;
+                }
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             excelApp = new Microsoft.Office.Interop.Excel.Application();
+        }
+
+        public void CreateHeaders(int row, int col, string text, Color backgroundColor)
+        {
+            worksheet.Cells[row, col] = text;
+            var cellNumber = GetCellExcelNumber(row, col);
+            var range = worksheet.get_Range(cellNumber, cellNumber);
+            range.Interior.Color = System.Drawing.ColorTranslator.ToOle(backgroundColor);
         }
 
         public void CreateHeaders(int row, int col, string text)
@@ -130,21 +79,169 @@ namespace tabuleckaGenerator
 
         public void FillDateColumn(int startRow, int col)
         {
-            var daysCount = GetDaysCount();
-            
             for (int row = 0; row < daysCount; row++)
-            {
-                var date = new DateTime(year, month, row + 1);
-                worksheet.Cells[row + startRow, col] = date;
-            }
+                worksheet.Cells[row + startRow, col] = new DateTime(year, month, row + 1);
 
-            var range = worksheet.get_Range("A1", "A" + daysCount);
-            range.NumberFormat = "D";
+            var range = worksheet.get_Range(GetCellExcelNumber(startRow, col), GetCellExcelNumber(startRow + daysCount - 1, col));
+            range.NumberFormat = "dd.mm.yyyy";
+        }
+
+        public void SetCellsFormat(int startRow, int col, string format)
+        {
+            var range = worksheet.get_Range(GetCellExcelNumber(startRow, col), GetCellExcelNumber(startRow + daysCount - 1, col));
+            range.NumberFormat = format;
+        }
+
+        public void FillDayColumn(int startRow, int col)
+        {
+            for (int row = 0; row < GetDaysCount(); row++)
+                worksheet.Cells[row + startRow, col] = GetSkDay(new DateTime(year, month, row + 1).DayOfWeek);
+        }
+
+        public void SetSumCell(int startRow, int col, string name)
+        {
+            worksheet.Cells[daysCount + startRow, col] = name;
+            var sumString = "=SUM(" + GetCellExcelNumber(startRow, col) + ":" + GetCellExcelNumber(startRow + daysCount - 1, col) + ")";
+            worksheet.Cells[daysCount + startRow + 1, col].Formula = sumString;
+        }
+
+        public void FinalizeTable(int row, int startCol)
+        {
+            CreateHeaders(row, startCol, "-", Color.Red);
+            worksheet.Cells[row + 1, startCol++].Formula = "=SUM(C2:F" + (daysCount + 1);
+
+            CreateHeaders(row, startCol, "+", Color.Green);
+            worksheet.Cells[row + 1, startCol++].Formula = "=SUM(G2:G" + (daysCount + 1);
+
+            CreateHeaders(row, startCol, "=", Color.Blue);
+            worksheet.Cells[row + 1, startCol++].Formula = "=-" + GetCellExcelNumber(row + 1, startCol - 3) + "+" + GetCellExcelNumber(row + 1, startCol - 2);
+
+            worksheet.get_Range(GetCellExcelNumber(row, startCol - 3), GetCellExcelNumber(row, startCol - 1)).Cells.HorizontalAlignment =
+                Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+        }
+
+        public void GenerateWholeYear(int year)
+        {
+            this.year = year;
+
+            for (int i = 12; i >= 1; i--)
+            {
+                this.month = i;
+                this.daysCount = GetDaysCount();
+
+                //worksheet = (Microsoft.Office.Interop.Excel.Worksheet)workbook.Sheets[i];
+                if (i == 12)
+                    worksheet = workbook.ActiveSheet;
+                else
+                    worksheet = workbook.Sheets.Add(Type.Missing, Type.Missing, 1, Type.Missing);
+                worksheet.Name = GetMonthString();
+                //workSheet.Activate();
+                worksheet.Application.ActiveWindow.SplitRow = 1;
+                worksheet.Application.ActiveWindow.FreezePanes = true;
+
+                CreateHeaders(1, 1, "Deň", Color.LightBlue);
+                CreateHeaders(1, 2, "Dátum", Color.LightBlue);
+
+                CreateHeaders(1, 3, "Auto", Color.Red);
+                SetCellsFormat(2, 3, "#,###,###.00€");
+                SetSumCell(2, 3, "Auto");
+
+                CreateHeaders(1, 4, "Obchod", Color.Red);
+                SetCellsFormat(2, 4, "#,###,###.00€");
+                SetSumCell(2, 4, "Obchod");
+
+                CreateHeaders(1, 5, "Obedy", Color.Red);
+                SetCellsFormat(2, 5, "#,###,###.00€");
+                SetSumCell(2, 5, "Obedy");
+
+                CreateHeaders(1, 6, "Iné", Color.Red);
+                SetCellsFormat(2, 6, "#,###,###.00€");
+                SetSumCell(2, 6, "Iné");
+
+                CreateHeaders(1, 7, "Vklad", Color.Green);
+                SetCellsFormat(2, 7, "#,###,###.00€");
+                SetSumCell(2, 7, "Vklad");
+
+                CreateHeaders(1, 8, "Výber", Color.LightBlue);
+                SetCellsFormat(2, 8, "#,###,###.00€");
+                SetSumCell(2, 8, "Výber");
+
+                FillDayColumn(2, 1);
+                FillDateColumn(2, 2);
+
+                FinalizeTable(1, 10);
+            }
         }
 
         private int GetDaysCount()
         {
             return DateTime.DaysInMonth(year, month);
+        }
+
+        private string GetSkDay(DayOfWeek day)
+        {
+            switch (day)
+            {
+                case DayOfWeek.Friday:
+                    return "Piatok";
+                case DayOfWeek.Monday:
+                    return "Pondelok";
+                case DayOfWeek.Saturday:
+                    return "Sobota";
+                case DayOfWeek.Sunday:
+                    return "Nedeľa";
+                case DayOfWeek.Thursday:
+                    return "Štvrtok";
+                case DayOfWeek.Tuesday:
+                    return "Utorok";
+                case DayOfWeek.Wednesday:
+                    return "Streda";
+                default:
+                    return "Neznámy deň";
+            }
+        }
+
+        private string GetMonthString()
+        {
+            switch (month)
+            {
+                case 1:
+                    return "Január";
+                case 2:
+                    return "Február";
+                case 3:
+                    return "Marec";
+                case 4:
+                    return "Apríl";
+                case 5:
+                    return "Máj";
+                case 6:
+                    return "Jún";
+                case 7:
+                    return "Júl";
+                case 8:
+                    return "August";
+                case 9:
+                    return "September";
+                case 10:
+                    return "Október";
+                case 11:
+                    return "November";
+                case 12:
+                    return "December";
+                default:
+                    return "Neznámy mesiac";
+            }
+        }
+
+        private string GetCellExcelNumber(int row, int col)
+        {
+            return NumberToUpperChar(col) + row;
+        }
+
+        private string NumberToUpperChar(int col)
+        {
+            return ((char)(64 + col)).ToString();
         }
     }
 }
