@@ -118,7 +118,6 @@ namespace tabuleckaGenerator
         public void CreateHeaders(int row, int col, string text)
         {
             worksheet.Cells[row, col] = text;
-            
         }
 
         public void SaveDocument(string filePath)
@@ -127,6 +126,25 @@ namespace tabuleckaGenerator
             workbook.Close(0);
             excelApp.Quit();
             System.Runtime.InteropServices.Marshal.ReleaseComObject(excelApp);
+        }
+
+        public void FillDateColumn(int startRow, int col)
+        {
+            var daysCount = GetDaysCount();
+            
+            for (int row = 0; row < daysCount; row++)
+            {
+                var date = new DateTime(year, month, row + 1);
+                worksheet.Cells[row + startRow, col] = date;
+            }
+
+            var range = worksheet.get_Range("A1", "A" + daysCount);
+            range.NumberFormat = "D";
+        }
+
+        private int GetDaysCount()
+        {
+            return DateTime.DaysInMonth(year, month);
         }
     }
 }

@@ -23,7 +23,8 @@ namespace tabuleckaGenerator
 
         private void button1_Click(object sender, EventArgs e)
         {
-            generator.CreateHeaders(1,1,"HEllo WOrld");
+            generator.FillDateColumn(1, 1);
+            //generator.CreateHeaders(1,1,"HEllo WOrld");
             generator.SaveDocument(@"C:\AATimo\daco.xlsx");
         }
     }
