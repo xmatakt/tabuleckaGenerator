@@ -17,6 +17,9 @@ namespace tabuleckaGenerator
         private int month;
         private int year;
         private int daysCount;
+        private static Color red = Color.FromArgb(230, 184, 183);
+        private static Color green = Color.FromArgb(216, 228, 188);
+        private static Color blue = Color.FromArgb(197, 217, 241);
 
         public TabuleckasGenerator(int month, int year)
         {
@@ -98,26 +101,58 @@ namespace tabuleckaGenerator
                 worksheet.Cells[row + startRow, col] = GetSkDay(new DateTime(year, month, row + 1).DayOfWeek);
         }
 
-        public void SetSumCell(int startRow, int col, string name)
+        public void SetSumCell(int startRow, int col, string name, bool isBalance = false)
         {
             worksheet.Cells[daysCount + startRow, col] = name;
-            var sumString = "=SUM(" + GetCellExcelNumber(startRow, col) + ":" + GetCellExcelNumber(startRow + daysCount - 1, col) + ")";
+            string sumString = "";
+            if (!isBalance)
+                sumString = "=SUM(" + GetCellExcelNumber(startRow, col) + ":" + GetCellExcelNumber(startRow + daysCount - 1, col) + ")";
+            else
+                sumString = "=" + GetCellExcelNumber(startRow + daysCount + 1, col + 1) + "-" +
+                    "SUM(" + GetCellExcelNumber(startRow + daysCount + 1, 3) + ":" + GetCellExcelNumber(startRow + daysCount + 1, 6) + ")";
             worksheet.Cells[daysCount + startRow + 1, col].Formula = sumString;
         }
 
         public void FinalizeTable(int row, int startCol)
         {
-            CreateHeaders(row, startCol, "-", Color.Red);
+            CreateHeaders(row, startCol, "+", green);
+            worksheet.Cells[row + 1, startCol++].Formula = "=SUM(H2:H" + (daysCount + 1);
+
+            CreateHeaders(row, startCol, "-", red);
             worksheet.Cells[row + 1, startCol++].Formula = "=SUM(C2:F" + (daysCount + 1);
 
-            CreateHeaders(row, startCol, "+", Color.Green);
-            worksheet.Cells[row + 1, startCol++].Formula = "=SUM(G2:G" + (daysCount + 1);
-
-            CreateHeaders(row, startCol, "=", Color.Blue);
-            worksheet.Cells[row + 1, startCol++].Formula = "=-" + GetCellExcelNumber(row + 1, startCol - 3) + "+" + GetCellExcelNumber(row + 1, startCol - 2);
+            CreateHeaders(row, startCol, "=", blue);
+            worksheet.Cells[row + 1, startCol++].Formula = "=" + GetCellExcelNumber(row + 1, startCol - 3) + "-" + GetCellExcelNumber(row + 1, startCol - 2);
 
             worksheet.get_Range(GetCellExcelNumber(row, startCol - 3), GetCellExcelNumber(row, startCol - 1)).Cells.HorizontalAlignment =
                 Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+        }
+
+        public void GeneratePieChart()
+        {
+            // Add chart
+            var charts = worksheet.ChartObjects() as
+                Microsoft.Office.Interop.Excel.ChartObjects;
+            var chartObject = charts.Add(439, 43, 340, 230) as
+                Microsoft.Office.Interop.Excel.ChartObject;
+            var chart = chartObject.Chart;
+
+            // Set chart range
+            var range = worksheet.get_Range(
+                GetCellExcelNumber(daysCount + 2, 3),
+                GetCellExcelNumber(daysCount + 3, 7)
+                );
+            chart.SetSourceData(range);
+
+            // Set chart properties
+            chart.ChartType = Microsoft.Office.Interop.Excel.XlChartType.xlPie;
+            chart.ChartWizard
+                (
+                    Source: range,
+                    Title: GetMonthString().ToLower()
+                    //CategoryTitle: xAxis,
+                    //ValueTitle: yAxis
+                );
         }
 
         public void GenerateWholeYear(int year)
@@ -139,37 +174,39 @@ namespace tabuleckaGenerator
                 worksheet.Application.ActiveWindow.SplitRow = 1;
                 worksheet.Application.ActiveWindow.FreezePanes = true;
 
-                CreateHeaders(1, 1, "Deň", Color.LightBlue);
-                CreateHeaders(1, 2, "Dátum", Color.LightBlue);
+                CreateHeaders(1, 1, "Deň", blue);
+                CreateHeaders(1, 2, "Dátum", blue);
 
-                CreateHeaders(1, 3, "Auto", Color.Red);
-                SetCellsFormat(2, 3, "#,###,###.00€");
-                SetSumCell(2, 3, "Auto");
+                CreateHeaders(1, 3, "Obchod", red);
+                SetCellsFormat(2, 3, "#,###,##0.00€");
+                SetSumCell(2, 3, "Obchod");
 
-                CreateHeaders(1, 4, "Obchod", Color.Red);
-                SetCellsFormat(2, 4, "#,###,###.00€");
-                SetSumCell(2, 4, "Obchod");
+                CreateHeaders(1, 4, "Auto", red);
+                SetCellsFormat(2, 4, "#,###,##0.00€");
+                SetSumCell(2, 4, "Auto");
 
-                CreateHeaders(1, 5, "Obedy", Color.Red);
-                SetCellsFormat(2, 5, "#,###,###.00€");
+                CreateHeaders(1, 5, "Obedy", red);
+                SetCellsFormat(2, 5, "#,###,##0.00€");
                 SetSumCell(2, 5, "Obedy");
 
-                CreateHeaders(1, 6, "Iné", Color.Red);
-                SetCellsFormat(2, 6, "#,###,###.00€");
+                CreateHeaders(1, 6, "Iné", red);
+                SetCellsFormat(2, 6, "#,###,##0.00€");
                 SetSumCell(2, 6, "Iné");
 
-                CreateHeaders(1, 7, "Vklad", Color.Green);
-                SetCellsFormat(2, 7, "#,###,###.00€");
-                SetSumCell(2, 7, "Vklad");
+                CreateHeaders(1, 7, "Výber", blue);
+                SetCellsFormat(2, 7, "#,###,##0.00€");
+                SetSumCell(2, 7, "Zostatok", true);
 
-                CreateHeaders(1, 8, "Výber", Color.LightBlue);
-                SetCellsFormat(2, 8, "#,###,###.00€");
-                SetSumCell(2, 8, "Výber");
+                CreateHeaders(1, 8, "Vklad", green);
+                SetCellsFormat(2, 8, "#,###,##0.00€");
+                SetSumCell(2, 8, "Vklad");
 
                 FillDayColumn(2, 1);
                 FillDateColumn(2, 2);
 
                 FinalizeTable(1, 10);
+
+                GeneratePieChart();
             }
         }
 

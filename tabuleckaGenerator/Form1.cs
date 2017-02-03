@@ -58,7 +58,7 @@ namespace tabuleckaGenerator
 
             generator.CreateHeaders(1, 8, "Výber", Color.LightBlue);
             generator.SetCellsFormat(2, 8, "#,###,###.00€");
-            generator.SetSumCell(2, 8, "Výber");
+            generator.SetSumCell(2, 8, "Zostatok", true);
 
             generator.FillDayColumn(2, 1);
             generator.FillDateColumn(2, 2);
